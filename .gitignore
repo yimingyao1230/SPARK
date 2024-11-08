@@ -1,3 +1,6 @@
 models/*.pt
-output/
+!models/
+dataset/*
+!dataset/
+runs/*
 *.pyc
