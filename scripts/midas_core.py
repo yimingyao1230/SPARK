@@ -33,8 +33,7 @@ class MidasCore():
     def normalize_depth(self, depth):
         depth_min = depth.min()
         depth_max = depth.max()
-        normalized_depth = 255 * (depth - depth_min) / (depth_max - depth_min)
-        normalized_depth *= 3
+        normalized_depth = (depth - depth_min) / (depth_max - depth_min)
 
         return normalized_depth
         
@@ -83,7 +82,7 @@ class MidasCore():
 
         return prediction
 
-    def get_depth(self, img, boxes):
+    def get_depth_box(self, img, box):
         original_image_rgb = self.read_image(img)  # in [0, 1]
         # print("original_image_rgb shape ", original_image_rgb.shape)
         image = self.transform({"image": original_image_rgb})["image"]
@@ -94,9 +93,28 @@ class MidasCore():
             prediction = self.process(image, original_image_rgb.shape[1::-1])
             normalized_depth = self.normalize_depth(prediction)
 
-        x_min, y_min, x_max, y_max = boxes
+        x_min, y_min, x_max, y_max = box
         x_center = int((x_min + x_max) / 2)
         y_center = int((y_min + y_max) / 2)
 
         # print("depth : ", normalized_depth[y_center][x_center])
         return normalized_depth[y_center][x_center]
+    
+    def get_depth_keypoints(self, img, keypoints):
+        original_image_rgb = self.read_image(img)  # in [0, 1]
+        # print("original_image_rgb shape ", original_image_rgb.shape)
+        image = self.transform({"image": original_image_rgb})["image"]
+        # print("image shape ", image.shape)
+
+        # Convert the keypoint positions to integers
+        keypoints = keypoints.astype(int)
+        
+        # compute
+        with torch.no_grad():
+            prediction = self.process(image, original_image_rgb.shape[1::-1])
+            normalized_depth = self.normalize_depth(prediction)
+        depth_values = normalized_depth[keypoints[:, 1], keypoints[:, 0]]
+        average_depth = np.mean(depth_values)
+        return average_depth
+
+
