@@ -10,7 +10,6 @@ input_path = 'input'
 
 # Load the YOLOv11 model
 model_path = 'models/yolo11n-pose.pt'
-# model = YOLO(model_path)
 model_pose = YOLO(model_path)  # load an official model
 
 midas_model_path = 'models/dpt_beit_large_512.pt'
@@ -21,25 +20,21 @@ for file_name in os.listdir(input_path):
     file_path = os.path.join(input_path, file_name)
     results_pose = model_pose(file_path)
     
-    # print(results)
-
-#     results = model(file_path)
     annotated_img = results_pose[0].plot()
 
     for result in results_pose:
         keypoints = result.keypoints.xy.cpu().numpy()
-        
 
         boxes = result.boxes.xyxy.cpu().numpy()  # Bounding box coordinates (x_min, y_min, x_max, y_max)
         confidences = result.boxes.conf.cpu().numpy()  # Confidence scores
         class_ids = result.boxes.cls.cpu().numpy()  # Class IDs
 
         # Print or process each detection
-        for box, confidence, class_id in zip(boxes, confidences, class_ids):
+        for box, confidence, class_id, keypoint in zip(boxes, confidences, class_ids, keypoints):
             x_min, y_min, x_max, y_max = box  # Bounding box coordinates
             print(f"Bounding Box: {x_min, y_min, x_max, y_max}, Confidence: {confidence}, Class ID: {class_id}")
 
-            depth = midas.get_depth_keypoints(file_path, keypoints)
+            depth = midas.get_depth_keypoints(file_path, keypoint)
 
             depth_label = f"depth: {depth:.2f}"
             x_center = int((x_min + x_max) / 2)

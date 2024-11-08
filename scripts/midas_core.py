@@ -108,6 +108,9 @@ class MidasCore():
 
         # Convert the keypoint positions to integers
         keypoints = keypoints.astype(int)
+
+        # Filter out rows where either x or y is zero
+        keypoints = keypoints[(keypoints[:, 0] != 0) & (keypoints[:, 1] != 0)]
         
         # compute
         with torch.no_grad():
