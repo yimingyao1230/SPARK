@@ -15,7 +15,7 @@ model_pose = YOLO(model_path)  # load an official model
 midas_model_path = 'models/dpt_beit_large_512.pt'
 midas = MidasCore(midas_model_path)
 
-
+# Get pose estimation on person
 for file_name in os.listdir(input_path):
     file_path = os.path.join(input_path, file_name)
     results_pose = model_pose(file_path)
