@@ -7,3 +7,5 @@ runs/*
 /Safety-6
 /checkpoints
 *.pt
+checkpoints/*
+!checkpoints/
