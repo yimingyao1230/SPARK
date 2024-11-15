@@ -4,3 +4,6 @@ dataset/*
 !dataset/
 runs/*
 *.pyc
+/Safety-6
+/checkpoints
+*.pt
