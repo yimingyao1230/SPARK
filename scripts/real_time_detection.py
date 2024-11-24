@@ -29,7 +29,7 @@ class ObjectDetection:
 
     def plot_bboxes(self, results, frame):
         boxes = results[0].boxes.data.tolist()
-        compliance_results = cehck_compliance(boxes)
+        compliance_results = check_compliance(boxes)
         if not compliance_results:
             print('No person detected')
         else:
@@ -104,7 +104,7 @@ def has_overlap(person_box, item_boxes, overlap_threshold=0.1):
     return False 
 
 
-def cehck_compliance(boxes):
+def check_compliance(boxes):
     # Detected objects
     confidence_threshold = 0.5
     no_helmet_detections = [box for box in boxes if box[5] == 0 ]
