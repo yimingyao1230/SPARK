@@ -322,6 +322,7 @@ if __name__ == "__main__":
     # parser.add_argument('--known_points', nargs='+', help="Known points in the format x,y,distance")
     args = parser.parse_args()
 
+<<<<<<< Updated upstream
     detector = ObjectDetection(
         capture_index=args.video_path,
         model_path=args.model_path,
