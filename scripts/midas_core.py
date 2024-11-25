@@ -2,7 +2,7 @@ import torch
 import cv2
 import numpy as np
 
-from scripts.midas.model_loader import default_models, load_model
+from midas.model_loader import default_models, load_model
 
 first_execution = True
 class MidasCore():
@@ -101,9 +101,9 @@ class MidasCore():
         return normalized_depth[y_center][x_center]
     
     def get_depth_keypoints(self, img, keypoints):
-        original_image_rgb = self.read_image(img)  # in [0, 1]
+        # original_image_rgb = self.read_image(img)  # in [0, 1]
         # print("original_image_rgb shape ", original_image_rgb.shape)
-        image = self.transform({"image": original_image_rgb})["image"]
+        image = self.transform({"image": img})["image"]
         # print("image shape ", image.shape)
 
         # Convert the keypoint positions to integers
@@ -114,19 +114,22 @@ class MidasCore():
         
         # compute
         with torch.no_grad():
-            prediction = self.process(image, original_image_rgb.shape[1::-1])
+            prediction = self.process(image, img.shape[1::-1])
             normalized_depth = self.normalize_depth(prediction)
         depth_values = normalized_depth[keypoints[:, 1], keypoints[:, 0]]
         average_depth = np.mean(depth_values)
         return average_depth
     
-    def get_depth(self, img):
-        original_image_rgb = self.read_image(img)
-        image = self.transform({"image": original_image_rgb})["image"]
+    def get_depth(self, img, render=False):
+        # original_image_rgb = self.read_image(img)
+        image = self.transform({"image": img})["image"]
 
         with torch.no_grad():
-            prediction = self.process(image, original_image_rgb.shape[1::-1])
+            prediction = self.process(image, img.shape[1::-1])
             normalized_depth = self.normalize_depth(prediction)
+        
+        if render:
+            normalized_depth = cv2.applyColorMap(normalized_depth.astype(np.uint8), cv2.COLORMAP_INFERNO)
         
         return normalized_depth
 
