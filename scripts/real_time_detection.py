@@ -9,13 +9,15 @@ import json
 import matplotlib.pyplot as plt
 
 class ObjectDetection:
-    def __init__(self, capture_index, model_path, output_path, midas_model_path, calib=False):
+    def __init__(self, capture_index, model_path, output_path, midas_model_path, calib=False, tag_distance0=None, tag_distance1=None):
         self.capture_index = capture_index
         self.model_path = model_path
         self.output_path = output_path
         self.midas_model_path = midas_model_path
         self.calib = calib
         self.is_calibrated = False
+        self.tag_distance0 = tag_distance0
+        self.tag_distance1 = tag_distance1
         # self.known_points = known_points  # Added known_points parameter
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print("Using device: ", self.device)
@@ -61,9 +63,9 @@ class ObjectDetection:
             tag_id = detection.tag_id
             center_x, center_y = detection.center
             if tag_id == 0:
-                tag_centers.append((center_x, center_y, 0.28))
+                tag_centers.append((center_x, center_y, self.tag_distance0))
             elif tag_id == 1:
-                tag_centers.append((center_x, center_y, 0.58))
+                tag_centers.append((center_x, center_y, self.tag_distance1))
         return tag_centers
     
     def depth_to_real(self, midas_prediction, image):
@@ -79,53 +81,55 @@ class ObjectDetection:
 
         if self.calib:
             known_points = self.detect_apriltags(image)
-            # Get pairs of normalized relative and real depths
-            points = np.array([(midas_prediction[int(y), int(x)], distance) for x, y, distance in known_points])
 
-            # Solve the system of equations:
-            # relative_depth*(1/min_depth) + (1-relative_depth)*(1/max_depth) = 1/real_depth
-            x = points[:, 0]  # Normalized relative depth
-            y = 1 / points[:, 1]  # Inverse of real depth
-            A = np.vstack([x, 1 - x]).T
+            point1_x, point1_y, point1_real = known_points[0]
+            point2_x, point2_y, point2_real = known_points[1]
 
-            s, t = np.linalg.lstsq(A, y, rcond=None)[0]
+            point1_norm = 1 - midas_prediction[int(point1_y), int(point1_x)] 
+            point2_norm = 1 - midas_prediction[int(point2_y), int(point2_x)]
 
-            min_depth = 1 / s
-            max_depth = 1 / t
+            if point1_norm != 0 and point2_norm != 0:
+                a1 = point1_real / point1_norm
+                a2 = point2_real / point2_norm
 
-            # Align relative depth to real depth
-            A_calib = (1 / min_depth) - (1 / max_depth)
-            B_calib = 1 / max_depth
-            print(A_calib * midas_prediction + B_calib)
-            midas_depth_aligned = 1 / (A_calib * midas_prediction + B_calib)
-            
+                if np.isclose(a1, a2, atol=1e-6):
+                    a = (a1 + a2) / 2  # Averaging to be robust
+                    print(f"Scaling factor 'a' is consistent. Using a = {a}")
+                else:
+                    print("Scaling factors from the two points are inconsistent. Using Least Squares to find the best 'a'.")
+                    # Use Least Squares to find the best a
+                    D_norm = np.array([point1_norm, point2_norm])
+                    D_real = np.array([point1_real, point2_real])
+                    # Since D_real = a * D_norm, it's a simple linear fit without intercept
+                    # a = (D_norm^T D_norm)^-1 D_norm^T D_real
+                    a = np.dot(D_norm, D_real) / np.dot(D_norm, D_norm)
+                    print(f"Computed scaling factor 'a' using Least Squares: {a}")
+
             calibration_data = {
-                'A_calib': A_calib, 
-                'B_calib': B_calib,
+                'a': a, 
             }
+
             with open('params/calibration_data.json', 'w') as file:
                 json.dump(calibration_data, file)
             self.is_calibrated = True
+            return []
             # check if calibration is successful\
-            print("known_points:", known_points)
-            print("points:", points)    
-
-            plt.figure(figsize=(10, 8))
-            plt.imshow(midas_prediction, cmap='inferno')  # Choose a colormap that enhances depth perception
-            plt.colorbar(label='Depth (meters)')
-            plt.title('Depth Map Visualization')
-            plt.xlabel('Pixel X')
-            plt.ylabel('Pixel Y')
-            plt.show()
+        #     print("known_points:", known_points)
+        #     plt.figure(figsize=(10, 8))
+        #     plt.imshow(depth_map_real, cmap='inferno')  # Choose a colormap that enhances depth perception
+        #     plt.colorbar(label='Depth (meters)')
+        #     plt.title('Depth Map Visualization')
+        #     plt.xlabel('Pixel X')
+        #     plt.ylabel('Pixel Y')
+        #     plt.show()
 
         else:
             if not json_loaded:
                 with open('params/calibration_data.json', 'r') as file:
                     calibration_data = json.load(file)
                 json_loaded = True
-            A_calib = calibration_data['A_calib']
-            B_calib = calibration_data['B_calib']
-            midas_depth_aligned = 1 / (A_calib * midas_prediction + B_calib)
+            a = calibration_data['a']
+            midas_depth_aligned  = a * (1-midas_prediction)
         
         return midas_depth_aligned
         
@@ -319,6 +323,8 @@ if __name__ == "__main__":
     parser.add_argument('--midas_path', required=True, help="Path to the MiDas model file")
     parser.add_argument('--output_path', required=True, help="Path to save the annotated video")
     parser.add_argument('--calib', action='store_true', help="Calibrate the depth map")
+    parser.add_argument('--tag_distance0', type=float, help="Distance to tag 0")
+    parser.add_argument('--tag_distance1', type=float, help="Distance to tag 1")
     # parser.add_argument('--known_points', nargs='+', help="Known points in the format x,y,distance")
     args = parser.parse_args()
 
@@ -328,6 +334,8 @@ if __name__ == "__main__":
         output_path=args.output_path,
         midas_model_path=args.midas_path,
         calib=args.calib,
+        tag_distance0=args.tag_distance0,
+        tag_distance1=args.tag_distance1
     )
     detector.run(render_depth=False)
     
