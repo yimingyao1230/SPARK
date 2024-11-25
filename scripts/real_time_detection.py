@@ -3,6 +3,7 @@ import cv2
 from ultralytics import YOLO
 import argparse
 from midas_core import MidasCore
+import numpy as np
 
 class ObjectDetection:
     def __init__(self, capture_index, model_path, output_path, midas_model_path, known_points):
