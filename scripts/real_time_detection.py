@@ -332,3 +332,8 @@ if __name__ == "__main__":
     )
     detector.run(render_depth=False)
     
+=======
+    detector = ObjectDetection(capture_index=args.video_path, model_path=args.model_path, output_path=args.output_path, midas_model_path=args.midas_path)
+    detector.run(render_depth=False)
+
+>>>>>>> Stashed changes
