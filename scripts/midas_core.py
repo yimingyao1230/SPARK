@@ -33,7 +33,7 @@ class MidasCore():
     def normalize_depth(self, depth):
         depth_min = depth.min()
         depth_max = depth.max()
-        normalized_depth = 255 * (depth - depth_min) / (depth_max - depth_min)
+        normalized_depth = (depth - depth_min) / (depth_max - depth_min)
 
         return normalized_depth
         
@@ -116,6 +116,18 @@ class MidasCore():
         with torch.no_grad():
             prediction = self.process(image, img.shape[1::-1])
             normalized_depth = self.normalize_depth(prediction)
+        depth_values = normalized_depth[keypoints[:, 1], keypoints[:, 0]]
+        average_depth = np.mean(depth_values)
+        return average_depth
+    
+    def get_depth_keypoints_from_depth_map(self, depth_map, keypoints):
+        # Convert the keypoint positions to integers
+        keypoints = keypoints.astype(int)
+
+        # Filter out rows where either x or y is zero
+        keypoints = keypoints[(keypoints[:, 0] != 0) & (keypoints[:, 1] != 0)]
+        
+        normalized_depth = self.normalize_depth(depth_map)
         depth_values = normalized_depth[keypoints[:, 1], keypoints[:, 0]]
         average_depth = np.mean(depth_values)
         return average_depth
