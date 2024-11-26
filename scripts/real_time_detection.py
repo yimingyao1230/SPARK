@@ -7,6 +7,7 @@ import numpy as np
 import apriltag
 import json
 import matplotlib.pyplot as plt
+import os
 
 class ObjectDetection:
     def __init__(self, capture_index, model_path, output_path, midas_model_path, calib=False, tag_distance0=None, tag_distance1=None):
@@ -25,6 +26,16 @@ class ObjectDetection:
         if self.calib:
             options = apriltag.DetectorOptions(families="tag36h11")
             self.detector = apriltag.Detector(options)
+        
+        self.warning_image_path = 'input/warning.png'  # Modify this path as needed
+        self.warning_image = None
+        if os.path.exists(self.warning_image_path):
+            self.warning_image = cv2.imread(self.warning_image_path)  # Load without alpha channel
+            if self.warning_image is None:
+                print(f"Warning: Unable to load warning image at {self.warning_image_path}")
+        else:
+            print(f"Warning: Warning image not found at {self.warning_image_path}")
+
 
         # Load all the models
         self.load_model()
@@ -201,11 +212,42 @@ class ObjectDetection:
                         warning_label = "DANGER: Non-compliant person too close!"
                         cv2.putText(frame, warning_label, (label_position[0], label_position[1] + 2 * line_spacing), 
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2, lineType=cv2.LINE_AA)
+                        self.overlay_warning_image(frame, bbox)
                 else:
                     depth_label =  "Depth: N/A"
                     cv2.putText(frame, depth_label, (label_position[0], label_position[1] + line_spacing), 
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2, lineType=cv2.LINE_AA)
         return frame
+    
+    def overlay_warning_image(self, frame, bbox):
+        # Calculate position to overlay the warning image
+        px_min, py_min, px_max, py_max = map(int, bbox)
+        warning_img = self.warning_image
+
+        # Define the size of the warning image relative to the bounding box
+        bbox_width = px_max - px_min
+        bbox_height = py_max - py_min
+        warning_img_width = int(bbox_width * 0.8)
+        warning_img_height = int(bbox_height * 0.8)
+
+        # Resize the warning image
+        warning_img_resized = cv2.resize(warning_img, (warning_img_width, warning_img_height), interpolation=cv2.INTER_AREA)
+
+        # Position the warning image above the bounding box
+        x_offset = px_min + int((bbox_width - warning_img_width) / 2)
+        y_offset = py_min - warning_img_height - 10  # 10 pixels above the bounding box
+
+        # Ensure the warning image is within frame bounds
+        if y_offset < 0:
+            y_offset = 0
+        if x_offset < 0:
+            x_offset = 0
+        if x_offset + warning_img_width > frame.shape[1]:
+            x_offset = frame.shape[1] - warning_img_width
+        if y_offset + warning_img_height > frame.shape[0]:
+            y_offset = frame.shape[0] - warning_img_height
+
+        frame[y_offset:y_offset+warning_img_height, x_offset:x_offset+warning_img_width] = warning_img_resized
 
     def has_overlap(self, person_box, item_boxes, overlap_threshold=0.1):
         px_min, py_min, px_max, py_max = person_box[:4]

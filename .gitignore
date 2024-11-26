@@ -10,4 +10,3 @@ runs/*
 checkpoints/*
 !checkpoints/
 /PPE-DETECTION-25
-yolo11s_training.ipynb
