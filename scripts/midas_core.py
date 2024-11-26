@@ -64,7 +64,7 @@ class MidasCore():
 
         if first_execution or not use_camera:
             height, width = sample.shape[2:]
-            print(f"    Input resized to {width}x{height} before entering the encoder")
+            # print(f"    Input resized to {width}x{height} before entering the encoder")
             first_execution = False
 
         prediction = self.model.forward(sample)
@@ -139,6 +139,7 @@ class MidasCore():
         with torch.no_grad():
             prediction = self.process(image, img.shape[1::-1])
             normalized_depth = self.normalize_depth(prediction)
+            normalized_depth *= 255.0
         
         if render:
             normalized_depth = cv2.applyColorMap(normalized_depth.astype(np.uint8), cv2.COLORMAP_INFERNO)

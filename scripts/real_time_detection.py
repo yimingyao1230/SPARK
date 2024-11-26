@@ -85,8 +85,8 @@ class ObjectDetection:
             point1_x, point1_y, point1_real = known_points[0]
             point2_x, point2_y, point2_real = known_points[1]
 
-            point1_norm = 1 - midas_prediction[int(point1_y), int(point1_x)] 
-            point2_norm = 1 - midas_prediction[int(point2_y), int(point2_x)]
+            point1_norm = midas_prediction[int(point1_y), int(point1_x)] 
+            point2_norm = midas_prediction[int(point2_y), int(point2_x)]
 
             if point1_norm != 0 and point2_norm != 0:
                 a1 = point1_real / point1_norm
@@ -112,16 +112,18 @@ class ObjectDetection:
             with open('params/calibration_data.json', 'w') as file:
                 json.dump(calibration_data, file)
             self.is_calibrated = True
-            return []
+            # depth_map_real = a * (1-midas_prediction)
             # check if calibration is successful\
         #     print("known_points:", known_points)
-        #     plt.figure(figsize=(10, 8))
-        #     plt.imshow(depth_map_real, cmap='inferno')  # Choose a colormap that enhances depth perception
-        #     plt.colorbar(label='Depth (meters)')
-        #     plt.title('Depth Map Visualization')
-        #     plt.xlabel('Pixel X')
-        #     plt.ylabel('Pixel Y')
-        #     plt.show()
+            # plt.figure(figsize=(10, 8))
+            # plt.imshow(midas_prediction, cmap='inferno')  # Choose a colormap that enhances depth perception
+            # plt.colorbar(label='Depth (meters)')
+            # plt.title('Depth Map Visualization')
+            # plt.xlabel('Pixel X')
+            # plt.ylabel('Pixel Y')
+            # plt.show()
+
+            return []
 
         else:
             if not json_loaded:
@@ -129,7 +131,7 @@ class ObjectDetection:
                     calibration_data = json.load(file)
                 json_loaded = True
             a = calibration_data['a']
-            midas_depth_aligned  = a * (1-midas_prediction)
+            midas_depth_aligned  = a * midas_prediction
         
         return midas_depth_aligned
         
@@ -303,8 +305,12 @@ class ObjectDetection:
             depth_results = self.estimate_depth(frame)
             annotated_frame = self.plot_bboxes(results, frame, depth_results)
 
-        # Write annotated frame to output file
+            # Write annotated frame to output file
             out.write(annotated_frame)
+            # cv2.imshow('Video', annotated_frame)
+            # if cv2.waitKey(20) & 0xFF == ord('q'):
+            #     break
+
             if render_depth:
                 depth_frame = self.midas.get_depth(frame, render=True)
                 depth_out.write(depth_frame)
