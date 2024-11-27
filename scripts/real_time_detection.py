@@ -21,7 +21,6 @@ class ObjectDetection:
         self.tag_distance0 = tag_distance0
         self.tag_distance1 = tag_distance1
         self.distance_warning_counter = 0
-        # self.known_points = known_points  # Added known_points parameter
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print("Using device: ", self.device)
 
@@ -29,10 +28,11 @@ class ObjectDetection:
             options = apriltag.DetectorOptions(families="tag36h11")
             self.detector = apriltag.Detector(options)
         
-        self.warning_image_path = 'input/warning.png'  # Modify this path as needed
+        self.warning_image_path = '../input/warning_icon.png'  # Modify this path as needed
         self.warning_image = None
         if os.path.exists(self.warning_image_path):
-            self.warning_image = cv2.imread(self.warning_image_path)  # Load without alpha channel
+            # Load the warning image with alpha channel
+            self.warning_image = cv2.imread(self.warning_image_path, cv2.IMREAD_UNCHANGED)
             if self.warning_image is None:
                 print(f"Warning: Unable to load warning image at {self.warning_image_path}")
         else:
@@ -255,8 +255,30 @@ class ObjectDetection:
             x_offset = frame.shape[1] - warning_img_width
         if y_offset + warning_img_height > frame.shape[0]:
             y_offset = frame.shape[0] - warning_img_height
+        
+        if warning_img_resized.shape[2] == 4:
+            # Split the channels
+            b, g, r, a = cv2.split(warning_img_resized)
+            overlay_color = cv2.merge((b, g, r))
+            mask = cv2.merge((a, a, a))
 
-        frame[y_offset:y_offset+warning_img_height, x_offset:x_offset+warning_img_width] = warning_img_resized
+            # Normalize the alpha mask to keep intensity between 0 and 1
+            alpha = mask.astype(float) / 255
+            alpha_inv = 1.0 - alpha
+
+            # Get the region of interest on the frame
+            roi = frame[y_offset:y_offset+warning_img_height, x_offset:x_offset+warning_img_width]
+
+            # Blend the images
+            for c in range(0, 3):
+                roi[:, :, c] = (alpha_inv[:, :, c] * roi[:, :, c] + alpha[:, :, c] * overlay_color[:, :, c])
+
+            # Place the blended image back into the frame
+            frame[y_offset:y_offset+warning_img_height, x_offset:x_offset+warning_img_width] = roi
+        else:
+            # No alpha channel, simple overlay
+            frame[y_offset:y_offset+warning_img_height, x_offset:x_offset+warning_img_width] = warning_img_resized
+
 
     def has_overlap(self, person_box, item_boxes, overlap_threshold=0.1):
         px_min, py_min, px_max, py_max = person_box[:4]
