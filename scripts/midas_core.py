@@ -101,9 +101,9 @@ class MidasCore():
         return normalized_depth[y_center][x_center]
     
     def get_depth_keypoints(self, img, keypoints):
-        # original_image_rgb = self.read_image(img)  # in [0, 1]
+        original_image_rgb = self.read_image(img)  # in [0, 1]
         # print("original_image_rgb shape ", original_image_rgb.shape)
-        image = self.transform({"image": img})["image"]
+        image = self.transform({"image": original_image_rgb})["image"]
         # print("image shape ", image.shape)
 
         # Convert the keypoint positions to integers
@@ -114,7 +114,7 @@ class MidasCore():
         
         # compute
         with torch.no_grad():
-            prediction = self.process(image, img.shape[1::-1])
+            prediction = self.process(image, image.shape[1::-1])
             normalized_depth = self.normalize_depth(prediction)
         depth_values = normalized_depth[keypoints[:, 1], keypoints[:, 0]]
         average_depth = np.mean(depth_values)
@@ -127,17 +127,21 @@ class MidasCore():
         # Filter out rows where either x or y is zero
         keypoints = keypoints[(keypoints[:, 0] != 0) & (keypoints[:, 1] != 0)]
         
-        normalized_depth = self.normalize_depth(depth_map)
-        depth_values = normalized_depth[keypoints[:, 1], keypoints[:, 0]]
-        average_depth = np.mean(depth_values)
-        return average_depth
+        # normalized_depth = self.normalize_depth(depth_map)
+        try:
+            depth_values = depth_map[keypoints[:, 1], keypoints[:, 0]]
+            average_depth = np.mean(depth_values)
+            return average_depth
+        except:
+            return 0.0
     
     def get_depth(self, img, render=False):
         # original_image_rgb = self.read_image(img)
-        image = self.transform({"image": img})["image"]
+        original_image_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) / 255.0
+        image = self.transform({"image": original_image_rgb})["image"]
 
         with torch.no_grad():
-            prediction = self.process(image, img.shape[1::-1])
+            prediction = self.process(image, original_image_rgb.shape[1::-1])
             normalized_depth = self.normalize_depth(prediction)
             normalized_depth *= 255.0
         

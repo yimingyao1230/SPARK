@@ -7,6 +7,7 @@ import numpy as np
 import apriltag
 import json
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 import os
 
 class ObjectDetection:
@@ -19,6 +20,7 @@ class ObjectDetection:
         self.is_calibrated = False
         self.tag_distance0 = tag_distance0
         self.tag_distance1 = tag_distance1
+        self.distance_warning_counter = 0
         # self.known_points = known_points  # Added known_points parameter
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print("Using device: ", self.device)
@@ -43,7 +45,7 @@ class ObjectDetection:
     def load_model(self):
         # Load the YOLO model
         # model_path = r'C:\Users\wwr01\OneDrive\Desktop\GRAD\MIE1517\Project\Models\yolo11n-ppe-1111.pt'
-        self.model = YOLO(self.model_path)
+        self.model = YOLO(self.model_path, verbose=False)
         self.model.to(self.device)
         self.model.fuse()
 
@@ -51,10 +53,10 @@ class ObjectDetection:
         self.midas = MidasCore(model_path=self.midas_model_path)
 
         # Load the YOLO pose model
-        self.yolo_pose_model = YOLO('checkpoints/yolo11n-pose.pt')  # load an official model
+        self.yolo_pose_model = YOLO('checkpoints/yolo11n-pose.pt', verbose=False)  # load an official model
 
     def predict(self, frame):
-        results = self.model(frame)
+        results = self.model(frame, verbose=False)
         return results
 
     def detect_apriltags(self, image):
@@ -92,12 +94,14 @@ class ObjectDetection:
 
         if self.calib:
             known_points = self.detect_apriltags(image)
-
+            if len(known_points) < 2:
+                print("No known points detected.")
+                return None
             point1_x, point1_y, point1_real = known_points[0]
             point2_x, point2_y, point2_real = known_points[1]
 
-            point1_norm = midas_prediction[int(point1_y), int(point1_x)] 
-            point2_norm = midas_prediction[int(point2_y), int(point2_x)]
+            point1_norm = 1-midas_prediction[int(point1_y), int(point1_x)] 
+            point2_norm = 1-midas_prediction[int(point2_y), int(point2_x)]
 
             if point1_norm != 0 and point2_norm != 0:
                 a1 = point1_real / point1_norm
@@ -117,22 +121,24 @@ class ObjectDetection:
                     print(f"Computed scaling factor 'a' using Least Squares: {a}")
 
             calibration_data = {
-                'a': a, 
+                'a': a
             }
 
             with open('params/calibration_data.json', 'w') as file:
                 json.dump(calibration_data, file)
             self.is_calibrated = True
-            # depth_map_real = a * (1-midas_prediction)
+            depth_map_real = a * (1-midas_prediction)
+            depth_map_real -= np.max(depth_map_real)
+            depth_map_real = np.abs(depth_map_real)
             # check if calibration is successful\
         #     print("known_points:", known_points)
-            # plt.figure(figsize=(10, 8))
-            # plt.imshow(midas_prediction, cmap='inferno')  # Choose a colormap that enhances depth perception
-            # plt.colorbar(label='Depth (meters)')
-            # plt.title('Depth Map Visualization')
-            # plt.xlabel('Pixel X')
-            # plt.ylabel('Pixel Y')
-            # plt.show()
+            plt.figure(figsize=(10, 8))
+            plt.imshow(depth_map_real, cmap='inferno')  # Choose a colormap that enhances depth perception
+            plt.colorbar(label='Depth (meters)')
+            plt.title('Depth Map Visualization')
+            plt.xlabel('Pixel X')
+            plt.ylabel('Pixel Y')
+            plt.show()
 
             return []
 
@@ -142,7 +148,9 @@ class ObjectDetection:
                     calibration_data = json.load(file)
                 json_loaded = True
             a = calibration_data['a']
-            midas_depth_aligned  = a * midas_prediction
+            midas_depth_aligned = a * (1-midas_prediction)
+            midas_depth_aligned -= np.max(midas_depth_aligned)
+            midas_depth_aligned = np.abs(midas_depth_aligned)
         
         return midas_depth_aligned
         
@@ -157,7 +165,7 @@ class ObjectDetection:
             print('Depth calibration failed.')
             return []
 
-        results_pose = self.yolo_pose_model(frame)
+        results_pose = self.yolo_pose_model(frame, verbose=False)
         depth_results = []
         for result in results_pose:
             keypoints = result.keypoints.xy.cpu().numpy()
@@ -167,7 +175,7 @@ class ObjectDetection:
             for keypoint, box in zip(keypoints, boxes):
                 depth = self.midas.get_depth_keypoints_from_depth_map(real_depth_map, keypoint)
                 depth_results.append((box, depth))
-
+        # print("depth_results:", depth_results)
         return depth_results
 
 
@@ -175,7 +183,8 @@ class ObjectDetection:
         boxes = results[0].boxes.data.tolist()
         compliance_results = self.check_compliance(boxes)
         if not compliance_results:
-            print('No person detected')
+            # print('No person detected')
+            pass
         else:
             for bbox, compliance_status, compliance_label in compliance_results:
                 # print(bbox)
@@ -206,7 +215,7 @@ class ObjectDetection:
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2, lineType=cv2.LINE_AA)
                     
                     # Check if depth is less than threshold
-                    depth_threshold = 5.0  # Meters, adjust as needed
+                    depth_threshold = 1.5  # Meters, adjust as needed
                     if person_depth <= depth_threshold and compliance_status == "Non-compliant":
                         # Raise an alert
                         warning_label = "DANGER: Non-compliant person too close!"
@@ -227,8 +236,8 @@ class ObjectDetection:
         # Define the size of the warning image relative to the bounding box
         bbox_width = px_max - px_min
         bbox_height = py_max - py_min
-        warning_img_width = int(bbox_width * 0.8)
-        warning_img_height = int(bbox_height * 0.8)
+        warning_img_width = int(bbox_width * 0.2)
+        warning_img_height = int(bbox_height * 0.2)
 
         # Resize the warning image
         warning_img_resized = cv2.resize(warning_img, (warning_img_width, warning_img_height), interpolation=cv2.INTER_AREA)
@@ -337,26 +346,27 @@ class ObjectDetection:
             depth_out.release()
             return
 
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                print("End of video.")
-                break
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        with tqdm(total=total_frames, desc="Processing video", unit="frame") as pbar:
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    print("End of video.")
+                    break
 
-            results = self.predict(frame)
-            depth_results = self.estimate_depth(frame)
-            annotated_frame = self.plot_bboxes(results, frame, depth_results)
+                results = self.predict(frame)
+                depth_results = self.estimate_depth(frame)
+                if render_depth:
+                    depth_frame = self.midas.get_depth(frame, render=True)
+                    depth_out.write(depth_frame)
+                annotated_frame = self.plot_bboxes(results, frame, depth_results)
 
-            # Write annotated frame to output file
-            out.write(annotated_frame)
-            # cv2.imshow('Video', annotated_frame)
-            # if cv2.waitKey(20) & 0xFF == ord('q'):
-            #     break
-
-            if render_depth:
-                depth_frame = self.midas.get_depth(frame, render=True)
-                depth_out.write(depth_frame)
-
+                # Write annotated frame to output file
+                out.write(annotated_frame)
+                # cv2.imshow('Video', annotated_frame)
+                # if cv2.waitKey(20) & 0xFF == ord('q'):
+                #     break
+                pbar.update(1)
         cap.release()
         out.release()
         depth_out.release()
