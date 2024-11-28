@@ -236,7 +236,7 @@ class ObjectDetection:
         # Define the size of the warning image relative to the bounding box
         bbox_width = px_max - px_min
         bbox_height = py_max - py_min
-        warning_img_width = int(bbox_width * 0.2)
+        warning_img_width = int(bbox_width * 0.3) #####change this  parameter to resize
         aspect_ratio = warning_img.shape[0] / warning_img.shape[1]  # Height/Width
         warning_img_height = int(warning_img_width * aspect_ratio)
         warning_img_resized = cv2.resize(warning_img, (warning_img_width, warning_img_height), interpolation=cv2.INTER_AREA)
