@@ -236,44 +236,41 @@ class ObjectDetection:
         # Define the size of the warning image relative to the bounding box
         bbox_width = px_max - px_min
         bbox_height = py_max - py_min
-        warning_img_width = int(bbox_width * 0.2)
-        warning_img_height = int(bbox_height * 0.2)
+        warning_img_width = min(int(bbox_width * 0.2), warning_img.shape[1])
+        warning_img_height = min(int(bbox_height * 0.2), warning_img.shape[0])
 
         # Resize the warning image
         warning_img_resized = cv2.resize(warning_img, (warning_img_width, warning_img_height), interpolation=cv2.INTER_AREA)
 
-        # Position the warning image above the bounding box
-        x_offset = px_min + int((bbox_width - warning_img_width) / 2)
-        y_offset = py_min - warning_img_height - 10  # 10 pixels above the bounding box
+        # Position of warning image(now is top left)
+        x_offset = px_min
+        y_offset = py_min + int(bbox_height * 0.15)
 
         # Ensure the warning image is within frame bounds
-        if y_offset < 0:
-            y_offset = 0
-        if x_offset < 0:
-            x_offset = 0
         if x_offset + warning_img_width > frame.shape[1]:
-            x_offset = frame.shape[1] - warning_img_width
+            warning_img_width = frame.shape[1] - x_offset
+            warning_img_resized = warning_img_resized[:, :warning_img_width]
         if y_offset + warning_img_height > frame.shape[0]:
-            y_offset = frame.shape[0] - warning_img_height
+            warning_img_height = frame.shape[0] - y_offset
+            warning_img_resized = warning_img_resized[:warning_img_height, :]
+
         
         if warning_img_resized.shape[2] == 4:
             # Split the channels
-            b, g, r, a = cv2.split(warning_img_resized)
-            overlay_color = cv2.merge((b, g, r))
-            mask = cv2.merge((a, a, a))
+            alpha_mask = warning_img_resized[:, :, 3] / 255.0
+            alpha_inv = 1.0 - alpha_mask
 
-            # Normalize the alpha mask to keep intensity between 0 and 1
-            alpha = mask.astype(float) / 255
-            alpha_inv = 1.0 - alpha
+            # Get the color channels of the overlay image
+            overlay_color = warning_img_resized[:, :, :3]
 
-            # Get the region of interest on the frame
+            # Get the region of interest (ROI) from the frame
             roi = frame[y_offset:y_offset+warning_img_height, x_offset:x_offset+warning_img_width]
 
-            # Blend the images
+            # Blend the overlay with the ROI
             for c in range(0, 3):
-                roi[:, :, c] = (alpha_inv[:, :, c] * roi[:, :, c] + alpha[:, :, c] * overlay_color[:, :, c])
+                roi[:, :, c] = (alpha_mask * overlay_color[:, :, c] + alpha_inv * roi[:, :, c])
 
-            # Place the blended image back into the frame
+            # Place the blended ROI back into the frame
             frame[y_offset:y_offset+warning_img_height, x_offset:x_offset+warning_img_width] = roi
         else:
             # No alpha channel, simple overlay
