@@ -19,7 +19,7 @@ You can also refer to this [Report](https://github.com/yimingyao1230/mie1517_pro
 
 ## Calibration
 Calibration is needed to convert the relative depth from MiDaS to real-world measurements.
-You need to install the ["AprilTag"](https://april.eecs.umich.edu/software/apriltag) and print out the tag 0 and 1 from Tag36h11 family. The distances have to be measured from the camera in meters.
+You need to install the [AprilTag](https://april.eecs.umich.edu/software/apriltag) and print out the tag 0 and 1 from Tag36h11 family. The distances have to be measured from the camera in meters.
 `python scripts/ppe_detection.py --video_path 'input/demo1.mp4' --model_path 'checkpoints/yolo11s-ppe-best-final.pt' --midas_path 'checkpoints/dpt_beit_large_512.pt' --output_path 'output/demo1' --calib --tag_distance0 4.9 --tag_distance1 3.6`
 
 ## Running the code
