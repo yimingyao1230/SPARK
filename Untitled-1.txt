@@ -1,2 +1,0 @@
-python scripts/real_time_detection.py --video_path r'E:\MIE\MIE1517\mie1517_project\input\test1.mp4' --model_path r'E:\MIE\MIE1517\mie1517_project\checkpoints\yolo11n-ppe-1111.pt' --midas_path r'E:\MIE\MIE1517\mie1517_project\checkpoints\dpt_beit_large_512.pt' --output_path r'E:\MIE\MIE1517\mie1517_project\output\midas_test3'
-python scripts/real_time_detection.py --video_path 'input/test1.mp4' --model_path 'checkpoints/yolo11n-ppe-1111.pt' --midas_path 'checkpoints/dpt_beit_large_512.pt' --output_path 'output/test1'

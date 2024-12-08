@@ -7,12 +7,15 @@ This project contains three parts:
 1. PPE Detection
 2. PPE Compliance Verification
 3. Hazard Zone Detection and Proximity Alert System
+<img src='https://upload.wikimedia.org/wikipedia/commons/9/93/Agentflow_diagram.png'>
 
 ## Dataset
 We used the ["PPE Detection" dataset](https://universe.roboflow.com/ai-project-yolo/ppe-detection-q897z) available on Roboflow Universe, which contains labeled images for training YOLO-based object detection models.
 
-## Models
-Can be downloaded here [Models](https://drive.google.com/drive/folders/1_cE00JiE5j_5HQBPhx9-Th2CKNQ3MgVs?usp=sharing)
+## Models, Demos and Presentation
+Can be found here [link](https://drive.google.com/drive/folders/1_cE00JiE5j_5HQBPhx9-Th2CKNQ3MgVs?usp=sharing)
+
+You can also refer to this [Report](https://github.com/yimingyao1230/mie1517_project/blob/main/reports/progress_report.ipynb)
 
 ## Calibration
 Calibration is needed to convert the relative depth from MiDaS to real-world measurements.
